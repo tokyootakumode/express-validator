@@ -4,9 +4,10 @@
   "author": "Christoph Tavan <dev@tavan.de>",
   "contributors": [
     "Chris O'Hara <cohara87@gmail.com>",
-    "@orfaust"
+    "@orfaust",
+    "@zero21xxx"
   ],
-  "version": "0.3.2",
+  "version": "1.0.0",
   "homepage": "https://github.com/ctavan/express-validator",
   "repository": {
     "type": "git",
@@ -20,7 +21,7 @@
     "node": "*"
   },
   "dependencies": {
-    "validator": "0.4.25"
+    "validator": "2.0.0"
   },
   "devDependencies": {
     "async": "~0.1.22",

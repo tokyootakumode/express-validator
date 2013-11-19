@@ -23,11 +23,12 @@ var util = require('util'),
     app = express.createServer();
 
 app.use(express.bodyParser());
-app.use(expressValidator);
+app.use(expressValidator([options]));
 
 app.post('/:urlparam', function(req, res) {
 
-  req.assert('postparam', 'Invalid postparam').notEmpty().isInt();
+  // checkBody only checks req.body; none of the other req parameters
+  req.checkBody('postparam', 'Invalid postparam').notEmpty().isInt();
   req.assert('getparam', 'Invalid getparam').isInt();
   req.assert('urlparam', 'Invalid urlparam').isAlpha();
 
@@ -35,7 +36,7 @@ app.post('/:urlparam', function(req, res) {
 
   var errors = req.validationErrors();
   if (errors) {
-    res.send('There have been validation errors: ' + util.inspect(errors), 500);
+    res.send('There have been validation errors: ' + util.inspect(errors), 400);
     return;
   }
   res.json({
@@ -62,18 +63,36 @@ $ curl -d 'postparam=1' http://localhost:8888/t1est?getparam=1ab
 There have been validation errors: [
   { param: 'getparam', msg: 'Invalid getparam', value: '1ab' },
   { param: 'urlparam', msg: 'Invalid urlparam', value: 't1est' } ]
+
+$ curl http://localhost:8888/test?getparam=1&postparam=1
+There have been validation errors: [
+  { param: 'postparam', msg: 'Invalid postparam', value: undefined} ]
 ```
 
-You can extend the `Validator` and `Filter` objects to add custom validation
-and sanitization methods:
+### Middleware Options
+####`errorFormatter`
+_function(param,msg,value)_
+
+The `errorFormatter` option can be used to specify a function that can be used to format the objects that populate the error array that is returned in `req.validationErrors()`. It should return an `Object` that has `param`, `msg`, and `value` keys defined.
 
 ```javascript
-var expressValidator = require('express-validator');
+// In this example, the formParam value is going to get morphed into form body format useful for printing.
+app.use(expressValidator({
+  errorFormatter: function(param, msg, value) {
+      var namespace = param.split('.')
+      , root    = namespace.shift()
+      , formParam = root;
 
-expressValidator.Filter.prototype.toLowerCase = function(){
-  this.modify(this.str.toLowerCase());
-  return this.str;
-};
+    while(namespace.length) {
+      formParam += '[' + namespace.shift() + ']';
+    }
+    return {
+      param : formParam,
+      msg   : msg,
+      value : value
+    };
+  }
+}));
 ```
 
 ### Validation errors
@@ -147,7 +166,7 @@ Output:
 Alternatively you can use dot-notation to specify nested fields to be checked:
 
 ```javascript
-req.assert(['user', 'fields', 'email'], 'valid email required').isEmail();
+req.assert(['user.fields.email'], 'valid email required').isEmail();
 ```
 
 ### Regex routes
@@ -164,8 +183,42 @@ You can validate the extracted matches like this:
 req.assert(0, 'Not a three-digit integer.').len(3, 3).isInt();
 ```
 
+### Extending
+
+You can extend the `Validator` and `Filter` objects to add custom validation
+and sanitization method.
+
+Custom validation which always fails. Useful for debugging or for
+adding messages manually when doing complex validation:
+
+```javascript
+var expressValidator = require('express-validator');
+
+expressValidator.Validator.prototype.fail = function() {
+  //You could validate against this.str, instead of just erroring out.
+
+  this.error(this.msg);
+  return this;
+};
+```
+
+Custom sanitization which lower-cases the string:
+
+```javascript
+expressValidator.Filter.prototype.toLowerCase = function(){
+  this.modify(this.str.toLowerCase());
+  return this.str;
+};
+```
 
 ## Changelog
+
+### v0.4.1
+- Update this readme
+
+### v0.4.0
+- Added `req.checkBody()` (@zero21xxx).
+- Upgraded validator dependency to 1.1.3
 
 ### v0.3.0
 - `req.validationErrors()` now returns `null` instead of `false` if there are no errors.
@@ -206,6 +259,7 @@ req.assert(0, 'Not a three-digit integer.').len(3, 3).isInt();
 
 - Christoph Tavan <dev@tavan.de> - Wrap the gist in an npm package
 - @orfaust - Add `validationErrors()` and nested field support
+- @zero21xxx - Added `checkBody` function
 
 ## License
 
